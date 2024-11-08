@@ -1,5 +1,36 @@
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef, useState, useEffect } from "react";
+import * as d3 from "d3";
 import { OrgChart } from "d3-org-chart";
+
+const d = {
+  id: 1,
+  name: "Aurthor H",
+  children: [
+    { id: 2, name: "Susan James", relation: "Spouse", imageUrl: "" },
+    {
+      id: 3,
+      name: "John Paris Brandon",
+      relation: "Son",
+      children: [{ id: 4, name: "Taylor Swift", relation: "Daughter" }],
+    },
+  ],
+};
+
+function getFlattenedData(dataHierarchy) {
+  const descendants = d3.hierarchy(dataHierarchy).descendants();
+
+  descendants.forEach((d, i) => {
+    d.id = d.id || "id" + i;
+  });
+
+  return descendants
+    .map((d, i) => [d.parent?.data?.id, d.data])
+    .map(([parentId, data]) => {
+      const copy = { ...data };
+      delete copy.children;
+      return { ...copy, ...{ parentId } };
+    });
+}
 
 const NodeContent = (d) => {
   const color = "#FFFFFF";
@@ -39,48 +70,44 @@ const NodeContent = (d) => {
   ;
 };
 
+
 export default function FamilyChart(props, ref) {
+  const [data, setData] = useState(getFlattenedData(d));
+
   const d3Container = useRef(null);
   const chartRef = useRef(new OrgChart());
 
-  function addNode(node) {
-    chartRef.current.addNode(node);
-  }
-
-  props.setClick(addNode);
-
-
   // We need to manipulate DOM
   useLayoutEffect(() => {
-    if (props.data && d3Container.current) {
+    if (data && d3Container.current) {
       chartRef.current
         .container(d3Container.current)
-        .data(props.data)
+        .data(data)
         .nodeWidth((d) => 160)
         .nodeHeight((d) => 80)
-        .childrenMargin((d) => 120)
+        .childrenMargin((d) => 100)
         .compactMarginBetween((d) => 25)
-        .compactMarginPair((d) => 220)
+        .compactMarginPair((d) => 200)
         .siblingsMargin((d) => 25)
         .onNodeClick((d, i, arr) => {
           console.log("Id of clicked node ", d);
           props.onNodeClick(d);
         })
-        // .buttonContent(({ node, state }) => {
-        //   console.log('___NODE:', node);
-        //   return `<div style="px;color:#716E7B;border-radius:5px;padding:4px;font-size:10px;margin:auto auto;background-color:white;border: 1px solid #E4E2E9"> <span style="font-size:9px">${
-        //     node.children
-        //       ? `<i class="fas fa-angle-up"></i>`
-        //       : `<i class="fas fa-angle-down"></i>`
-        //   }</span> ${node.data._directSubordinates}  </div>`;
-        // })
 
         .nodeContent((d) => {
           return NodeContent(d);
         })
         .render();
     }
-  }, [props, d3Container]);
+  }, [data, props, d3Container]);
+
+  useEffect(() => {
+    d3.json(
+      "https://raw.githubusercontent.com/bumbeishvili/sample-data/main/org.csv"
+    ).then((data) => {
+      setData(data);
+    });
+  });
 
   return (
     <div>
